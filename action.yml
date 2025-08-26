@@ -1,0 +1,47 @@
+name: 'AATX Tracking Plan Validator'
+description: 'Validate analytics tracking code against a central tracking plan'
+author: 'ahnopologetic <stahn1995@gmail.com>'
+
+inputs:
+  api-key:
+    description: 'API key for authentication (generate from AATX dashboard)'
+    required: true
+  tracking-plan-id:
+    description: 'ID of the tracking plan to validate against'
+    required: true
+  api-url:
+    description: 'URL of the AATX API (default: https://app.aatx.ai)'
+    required: false
+    default: 'https://app.aatx.ai'
+  holistic:
+    description: 'Scan the entire codebase regardless of PR changes'
+    required: false
+    default: 'true'
+  delta:
+    description: 'Only scan files changed in the PR'
+    required: false
+    default: 'false'
+  auto-update:
+    description: 'Automatically update tracking plan with new events'
+    required: false
+    default: 'false'
+  overwrite:
+    description: 'Overwrite existing events in tracking plan'
+    required: false
+    default: 'false'
+  comment:
+    description: 'Leave comments on PR for mismatched events'
+    required: false
+    default: 'false'
+  fail-on-invalid:
+    description: 'Fail the GitHub Action if invalid events are found'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
