@@ -75,6 +75,62 @@ async function run() {
       core.info('Tracking plan was automatically updated with new events');
     }
 
+    // Log detailed information about invalid events
+    const invalidEvents = result.events?.filter(e => e.status === 'invalid') || [];
+    if (invalidEvents.length > 0) {
+      core.warning(`\n❌ INVALID EVENTS (${invalidEvents.length}):`);
+      invalidEvents.forEach((event, index) => {
+        core.warning(`\n${index + 1}. Event: ${event.name}`);
+        if (event.message) {
+          core.warning(`   Error: ${event.message}`);
+        }
+        if (event.implementation && event.implementation.length > 0) {
+          const impl = event.implementation[0];
+          core.warning(`   Location: ${impl.path}:${impl.line}`);
+          if (impl.code) {
+            core.warning(`   Code: ${impl.code.trim()}`);
+          }
+        }
+        if (event.properties && Object.keys(event.properties).length > 0) {
+          core.warning(`   Required Properties: ${Object.keys(event.properties).join(', ')}`);
+        }
+      });
+    }
+
+    // Log detailed information about missing events
+    const missingEvents = result.events?.filter(e => e.status === 'missing') || [];
+    if (missingEvents.length > 0) {
+      core.warning(`\n⚠️ MISSING EVENTS (${missingEvents.length}):`);
+      missingEvents.forEach((event, index) => {
+        core.warning(`\n${index + 1}. Event: ${event.name}`);
+        if (event.message) {
+          core.warning(`   Note: ${event.message}`);
+        }
+        if (event.properties && Object.keys(event.properties).length > 0) {
+          core.warning(`   Required Properties: ${Object.keys(event.properties).join(', ')}`);
+        }
+      });
+    }
+
+    // Log detailed information about new events
+    const newEvents = result.events?.filter(e => e.status === 'new') || [];
+    if (newEvents.length > 0) {
+      core.info(`\n🆕 NEW EVENTS (${newEvents.length}):`);
+      newEvents.forEach((event, index) => {
+        core.info(`\n${index + 1}. Event: ${event.name}`);
+        if (event.implementation && event.implementation.length > 0) {
+          const impl = event.implementation[0];
+          core.info(`   Location: ${impl.path}:${impl.line}`);
+          if (impl.code) {
+            core.info(`   Code: ${impl.code.trim()}`);
+          }
+        }
+        if (event.properties && Object.keys(event.properties).length > 0) {
+          core.info(`   Detected Properties: ${Object.keys(event.properties).join(', ')}`);
+        }
+      });
+    }
+
     // Set output variables
     core.setOutput('valid', result.valid);
     core.setOutput('total_events', result.summary?.totalEvents || 0);
@@ -91,7 +147,21 @@ async function run() {
 
     // Fail the action if invalid events are found and failOnInvalid is true
     if (!result.valid && failOnInvalid) {
-      const errorMessage = `Validation failed with ${result.summary?.invalidEvents || 0} invalid events and ${result.summary?.missingEvents || 0} missing events`;
+      const invalidCount = result.summary?.invalidEvents || 0;
+      const missingCount = result.summary?.missingEvents || 0;
+      
+      let errorMessage = `❌ Validation failed with ${invalidCount} invalid events and ${missingCount} missing events`;
+      
+      if (invalidCount > 0) {
+        errorMessage += `\n\nInvalid events: ${invalidEvents.map(e => e.name).join(', ')}`;
+      }
+      
+      if (missingCount > 0) {
+        errorMessage += `\n\nMissing events: ${missingEvents.map(e => e.name).join(', ')}`;
+      }
+      
+      errorMessage += '\n\nSee the detailed output above for specific issues and locations.';
+      
       core.setFailed(errorMessage);
     }
 
