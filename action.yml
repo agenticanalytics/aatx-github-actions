@@ -39,8 +39,8 @@ inputs:
     default: 'true'
 
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: 'node20'
+  main: 'index.js'
 
 branding:
   icon: 'check-circle'
