@@ -9,6 +9,7 @@ This GitHub Action validates your analytics tracking code against a central trac
 - **Auto-Update**: Automatically update your tracking plan with newly detected events
 - **PR Comments**: Leave helpful comments on PRs when tracking code doesn't match the plan
 - **Fail on Invalid**: Optionally fail the GitHub Action if invalid events are found
+- **Detailed Logging**: Comprehensive output showing specific invalid and missing events with file locations and code snippets
 
 ## Setup
 
@@ -103,6 +104,32 @@ jobs:
           echo "Total events: ${{ steps.validate.outputs.total_events }}"
           echo "Valid events: ${{ steps.validate.outputs.valid_events }}"
           echo "Invalid events: ${{ steps.validate.outputs.invalid_events }}"
+```
+
+## Example Output
+
+When the action finds issues, it provides detailed information in the GitHub Actions logs:
+
+```
+❌ INVALID EVENTS (2):
+
+1. Event: user_signup
+   Error: Missing required property 'email'
+   Location: src/components/SignupForm.tsx:45
+   Code: posthog.capture('user_signup', { name: user.name })
+   Required Properties: email, name
+
+2. Event: page_view
+   Error: Invalid property 'page_title' (should be 'title')
+   Location: src/utils/analytics.ts:23
+   Code: posthog.capture('page_view', { page_title: document.title })
+   Required Properties: title, url
+
+⚠️ MISSING EVENTS (1):
+
+1. Event: user_logout
+   Note: Event defined in tracking plan but not found in codebase
+   Required Properties: user_id
 ```
 
 ## Development
