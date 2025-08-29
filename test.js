@@ -10,7 +10,7 @@ const axios = require('axios');
 // Get command line arguments
 const apiKey = process.argv[2];
 const trackingPlanId = process.argv[3];
-const repositoryUrl = process.argv[4] || 'https://github.com/example/repo';
+const repositoryUrl = process.argv[4] || 'https://github.com/ahnopologetic/aatx';
 
 if (!apiKey || !trackingPlanId) {
   console.error('Usage: node test.js <api-key> <tracking-plan-id> [repository-url]');
@@ -59,18 +59,18 @@ async function runTest() {
     console.log('-------------------');
     console.log(`Status: ${response.status}`);
     console.log(`Valid: ${response.data.valid}`);
-    console.log(`Total Events: ${response.data.summary.totalEvents}`);
-    console.log(`Valid Events: ${response.data.summary.validEvents}`);
-    console.log(`Invalid Events: ${response.data.summary.invalidEvents}`);
-    console.log(`Missing Events: ${response.data.summary.missingEvents}`);
-    console.log(`New Events: ${response.data.summary.newEvents}`);
+    console.log(`Total Events: ${response.data.summary?.totalEvents}`);
+    console.log(`Valid Events: ${response.data.summary?.validEvents}`);
+    console.log(`Invalid Events: ${response.data.summary?.invalidEvents}`);
+    console.log(`Missing Events: ${response.data.summary?.missingEvents}`);
+    console.log(`New Events: ${response.data.summary?.newEvents}`);
     
     if (response.data.trackingPlanUpdated) {
       console.log('Tracking plan was automatically updated with new events');
     }
     
     console.log('\nEvents:');
-    response.data.events.forEach(event => {
+    response.data.events?.forEach(event => {
       console.log(`- ${event.name} (${event.status})`);
       if (event.message) {
         console.log(`  Message: ${event.message}`);

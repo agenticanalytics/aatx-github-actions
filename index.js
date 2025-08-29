@@ -14,12 +14,12 @@ async function run() {
     const overwrite = core.getBooleanInput('overwrite');
     const comment = core.getBooleanInput('comment');
     const failOnInvalid = core.getBooleanInput('fail-on-invalid');
-    
+
     // Get GitHub context
     const context = github.context;
     const { owner, repo } = context.repo;
     const repositoryUrl = `https://github.com/${owner}/${repo}`;
-    
+
     // Prepare PR details if available
     let prDetails = {};
     if (context.payload.pull_request) {
@@ -29,7 +29,7 @@ async function run() {
         baseSha: context.payload.pull_request.base.sha,
       };
     }
-    
+
     // Prepare validation request
     const validationRequest = {
       repositoryUrl,
@@ -43,11 +43,11 @@ async function run() {
       },
       prDetails,
     };
-    
+
     // Call validation API
     const validationEndpoint = `${apiUrl}/api/github-action/validate`;
     core.info(`Calling validation endpoint: ${validationEndpoint}`);
-    
+
     const response = await axios.post(validationEndpoint, validationRequest, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -55,40 +55,46 @@ async function run() {
         'User-Agent': 'AATX-GitHub-Action',
       },
     });
-    
+
     const result = response.data;
-    
+
+    // Validate response structure
+    if (!result || typeof result !== 'object') {
+      throw new Error('Invalid response format from validation API');
+    }
+
     // Log validation results
     core.info(`Validation completed with ${result.valid ? 'success' : 'errors'}`);
-    core.info(`Total events: ${result.summary.totalEvents}`);
-    core.info(`Valid events: ${result.summary.validEvents}`);
-    core.info(`Invalid events: ${result.summary.invalidEvents}`);
-    core.info(`Missing events: ${result.summary.missingEvents}`);
-    core.info(`New events: ${result.summary.newEvents}`);
-    
+    core.info(`Total events: ${result.summary?.totalEvents || 0}`);
+    core.info(`Valid events: ${result.summary?.validEvents || 0}`);
+    core.info(`Invalid events: ${result.summary?.invalidEvents || 0}`);
+    core.info(`Missing events: ${result.summary?.missingEvents || 0}`);
+    core.info(`New events: ${result.summary?.newEvents || 0}`);
+
     if (result.trackingPlanUpdated) {
       core.info('Tracking plan was automatically updated with new events');
     }
-    
+
     // Set output variables
     core.setOutput('valid', result.valid);
-    core.setOutput('total_events', result.summary.totalEvents);
-    core.setOutput('valid_events', result.summary.validEvents);
-    core.setOutput('invalid_events', result.summary.invalidEvents);
-    core.setOutput('missing_events', result.summary.missingEvents);
-    core.setOutput('new_events', result.summary.newEvents);
+    core.setOutput('total_events', result.summary?.totalEvents || 0);
+    core.setOutput('valid_events', result.summary?.validEvents || 0);
+    core.setOutput('invalid_events', result.summary?.invalidEvents || 0);
+    core.setOutput('missing_events', result.summary?.missingEvents || 0);
+    core.setOutput('new_events', result.summary?.newEvents || 0);
     core.setOutput('tracking_plan_updated', result.trackingPlanUpdated || false);
-    
-    // Add PR comments if enabled
+
+    // Add PR review comments if enabled
     if (comment && context.payload.pull_request) {
-      await addPrComments(result);
+      await addPrReviewComments(result);
     }
-    
+
     // Fail the action if invalid events are found and failOnInvalid is true
     if (!result.valid && failOnInvalid) {
-      core.setFailed(`Validation failed with ${result.summary.invalidEvents} invalid events and ${result.summary.missingEvents} missing events`);
+      const errorMessage = `Validation failed with ${result.summary?.invalidEvents || 0} invalid events and ${result.summary?.missingEvents || 0} missing events`;
+      core.setFailed(errorMessage);
     }
-    
+
   } catch (error) {
     core.setFailed(`Action failed: ${error.message}`);
     if (error.response) {
@@ -98,62 +104,94 @@ async function run() {
   }
 }
 
-async function addPrComments(result) {
+async function addPrReviewComments(result) {
   try {
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
-      core.warning('GITHUB_TOKEN not available, skipping PR comments');
+      core.warning('GITHUB_TOKEN not available, skipping PR review comments');
       return;
     }
-    
+
     const octokit = github.getOctokit(token);
     const context = github.context;
     const { owner, repo } = context.repo;
     const prNumber = context.payload.pull_request.number;
-    
-    // Create summary comment
-    const summaryBody = `## AATX Tracking Plan Validation Results
-    
-- **Total Events**: ${result.summary.totalEvents}
-- **Valid Events**: ${result.summary.validEvents}
-- **Invalid Events**: ${result.summary.invalidEvents}
-- **Missing Events**: ${result.summary.missingEvents}
-- **New Events**: ${result.summary.newEvents}
 
-${result.trackingPlanUpdated ? '✅ Tracking plan was automatically updated with new events' : ''}
-${!result.valid ? '❌ Some events do not match the tracking plan' : '✅ All events match the tracking plan'}`;
-    
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: prNumber,
-      body: summaryBody,
-    });
-    
+    // Prepare review comments for invalid and new events
+    const reviewComments = [];
+
     // Add comments for invalid events
-    const invalidEvents = result.events.filter(e => e.status === 'invalid');
-    if (invalidEvents.length > 0) {
-      for (const event of invalidEvents) {
-        if (event.implementation && event.implementation.length > 0) {
-          const impl = event.implementation[0];
-          const body = `❌ **Invalid Event**: \`${event.name}\`
-          
-${event.message || 'Event does not match tracking plan'}
-
-Found in file: \`${impl.path}\` at line ${impl.line}`;
-          
-          await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: prNumber,
-            body,
-          });
-        }
+    const invalidEvents = result.events?.filter(e => e.status === 'invalid') || [];
+    for (const event of invalidEvents) {
+      if (event.implementation && event.implementation.length > 0) {
+        const impl = event.implementation[0];
+        reviewComments.push({
+          path: impl.path,
+          line: impl.line,
+          body: `❌ **Invalid Event**: \`${event.name}\`\n\n${event.message || 'Event does not match tracking plan'}\n\n**Required Properties**: ${event.properties ? Object.keys(event.properties).join(', ') : 'None specified'}`
+        });
       }
     }
-    
+
+    // Add comments for new events (optional - you might want to highlight these)
+    const newEvents = result.events?.filter(e => e.status === 'new') || [];
+    for (const event of newEvents) {
+      if (event.implementation && event.implementation.length > 0) {
+        const impl = event.implementation[0];
+        reviewComments.push({
+          path: impl.path,
+          line: impl.line,
+          body: `🆕 **New Event**: \`${event.name}\`\n\n${event.message || 'Event found in codebase but not in tracking plan'}\n\n**Properties**: ${event.properties ? Object.keys(event.properties).join(', ') : 'None detected'}`
+        });
+      }
+    }
+
+    // Add comments for missing events (general comment since no specific line)
+    const missingEvents = result.events?.filter(e => e.status === 'missing') || [];
+    if (missingEvents.length > 0) {
+      const missingEventNames = missingEvents.map(e => `\`${e.name}\``).join(', ');
+      reviewComments.push({
+        path: 'README.md', // Use a common file for general comments
+        line: 1,
+        body: `⚠️ **Missing Events**: The following events are defined in the tracking plan but not found in the codebase:\n\n${missingEventNames}\n\nPlease implement these events or remove them from the tracking plan.`
+      });
+    }
+
+    // Create the review
+    if (reviewComments.length > 0) {
+      const reviewBody = `## AATX Tracking Plan Validation Review
+      
+- **Total Events**: ${result.summary?.totalEvents || 0}
+- **Valid Events**: ${result.summary?.validEvents || 0}
+- **Invalid Events**: ${result.summary?.invalidEvents || 0}
+- **Missing Events**: ${result.summary?.missingEvents || 0}
+- **New Events**: ${result.summary?.newEvents || 0}
+
+${result.trackingPlanUpdated ? '✅ Tracking plan was automatically updated with new events' : ''}
+${!result.valid ? '❌ Some events do not match the tracking plan' : '✅ All events match the tracking plan'}
+
+${result.metadata?.validationDuration ? `\n**Validation Duration**: ${result.metadata.validationDuration}ms` : ''}
+${result.metadata?.agentVersion ? `\n**Agent Version**: ${result.metadata.agentVersion}` : ''}`;
+
+      await octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number: prNumber,
+        body: reviewBody,
+        event: result.summary?.invalidEvents > 0 ? "REQUEST_CHANGES" : "COMMENT",
+        comments: reviewComments
+      });
+
+      core.info(`Created PR review with ${reviewComments.length} comments`);
+    } else {
+      core.info('No review comments to add');
+    }
+
   } catch (error) {
-    core.warning(`Failed to add PR comments: ${error.message}`);
+    core.warning(`Failed to add PR review comments: ${error.message}`);
+    if (error.response) {
+      core.error(`GitHub API response: ${JSON.stringify(error.response.data)}`);
+    }
   }
 }
 

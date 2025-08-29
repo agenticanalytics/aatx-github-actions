@@ -10,9 +10,9 @@ inputs:
     description: 'ID of the tracking plan to validate against'
     required: true
   api-url:
-    description: 'URL of the AATX API (default: https://app.aatx.ai)'
+    description: 'URL of the AATX API (default: https://aatx.ahnopologetic.xyz)'
     required: false
-    default: 'https://app.aatx.ai'
+    default: 'https://aatx.ahnopologetic.xyz'
   holistic:
     description: 'Scan the entire codebase regardless of PR changes'
     required: false
