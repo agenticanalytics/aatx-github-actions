@@ -4,6 +4,7 @@
   "description": "GitHub Action to validate analytics tracking code against a central tracking plan",
   "main": "index.js",
   "scripts": {
+    "prebuild": "mkdir -p dist",
     "build": "ncc build index.js -o dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

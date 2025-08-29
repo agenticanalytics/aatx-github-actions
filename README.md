@@ -99,6 +99,36 @@ jobs:
           
       - name: Check Results
         run: |
+          echo "Validation result: ${{ steps.validate.outputs.valid }}"
+          echo "Total events: ${{ steps.validate.outputs.total_events }}"
+          echo "Valid events: ${{ steps.validate.outputs.valid_events }}"
+          echo "Invalid events: ${{ steps.validate.outputs.invalid_events }}"
+```
+
+## Development
+
+### Building the Action
+
+This action uses `@vercel/ncc` to bundle all dependencies into a single file. To build the action:
+
+```bash
+npm install
+npm run build
+```
+
+The bundled file will be created in the `dist/` directory. The `action.yml` file points to `dist/index.js` as the main entry point.
+
+### Testing
+
+To test the action locally:
+
+```bash
+# Test with required inputs
+node dist/index.js
+```
+
+The action will fail with a missing input error, which confirms that the bundled dependencies are working correctly.
+        run: |
           echo "Valid: ${{ steps.validate.outputs.valid }}"
           echo "Total Events: ${{ steps.validate.outputs.total_events }}"
           echo "Valid Events: ${{ steps.validate.outputs.valid_events }}"
